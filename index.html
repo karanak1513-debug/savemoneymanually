@@ -1210,6 +1210,99 @@
       padding: 0 3px;
     }
 
+    /* ── Mobile Responsive Admin Live Desk (100% Fit On Small Screens) ── */
+    @media (max-width: 768px) {
+      #sg-admin-overlay {
+        padding: 0 !important;
+        align-items: stretch !important;
+        justify-content: stretch !important;
+        background: #070B12 !important;
+      }
+      #sg-admin-desk {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: 100% !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        border-radius: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+      #sg-admin-topbar {
+        padding: 0.65rem 0.85rem !important;
+      }
+      #sg-admin-topbar .text-slate-500 {
+        display: none !important;
+      }
+      #sg-admin-body {
+        position: relative !important;
+        flex: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        height: calc(100dvh - 54px) !important;
+      }
+      /* Default on mobile: Show Threads panel 100% width, hide chat panel */
+      #sg-threads-panel {
+        width: 100% !important;
+        height: 100% !important;
+        border-right: none !important;
+        display: flex !important;
+        flex: 1 !important;
+      }
+      #sg-admin-chat-panel {
+        display: none !important;
+        width: 100% !important;
+        height: 100% !important;
+        flex: 1 !important;
+      }
+      /* When chat is active on mobile: Hide threads panel, show chat panel 100% */
+      #sg-admin-desk.chat-active #sg-threads-panel {
+        display: none !important;
+      }
+      #sg-admin-desk.chat-active #sg-admin-chat-panel {
+        display: flex !important;
+        width: 100% !important;
+        height: 100% !important;
+      }
+      #sg-admin-toolbar {
+        padding: 0.45rem 0.65rem !important;
+        min-height: auto !important;
+        gap: 0.35rem !important;
+        flex-wrap: wrap !important;
+      }
+      #sg-admin-toolbar button {
+        padding: 0.35rem 0.55rem !important;
+        font-size: 0.68rem !important;
+        border-radius: 0.6rem !important;
+      }
+      #sg-admin-sel-user {
+        font-size: 0.72rem !important;
+        width: 100% !important;
+        margin-bottom: 2px !important;
+      }
+      #sg-admin-messages {
+        padding: 0.65rem 0.75rem !important;
+        gap: 0.4rem !important;
+      }
+      #sg-admin-reply-bar {
+        padding: 0.5rem 0.65rem max(0.5rem, env(safe-area-inset-bottom)) 0.65rem !important;
+        gap: 0.4rem !important;
+      }
+      #sg-admin-input {
+        padding: 0.55rem 0.75rem !important;
+        font-size: 0.82rem !important;
+        border-radius: 0.75rem !important;
+      }
+      #sg-admin-send {
+        padding: 0.55rem 0.95rem !important;
+        font-size: 0.75rem !important;
+        border-radius: 0.75rem !important;
+      }
+      .sg-thread-row {
+        padding: 0.7rem 0.85rem !important;
+      }
+    }
 
     /* ── Firestore Realtime Sync Badge ──────────────────────────── */
     #fs-sync-badge {
@@ -5477,6 +5570,7 @@
       elAdminLock?.addEventListener('click', () => {
         sessionStorage.removeItem('sg_admin_unlocked');
         elAdminOverlay?.classList.remove('open');
+        document.getElementById('sg-admin-desk')?.classList.remove('chat-active');
         heartbeatAdminPresence(false);
         showToast('Admin Desk locked.', 'info');
       });
@@ -5593,6 +5687,7 @@
 
       function selectAdminThread(tid, threadData) {
         sgActiveThread = tid;
+        document.getElementById('sg-admin-desk')?.classList.add('chat-active');
 
         // Highlight row
         document.querySelectorAll('.sg-thread-row').forEach(r => {
@@ -5749,12 +5844,17 @@
       elAdminOverlay?.addEventListener('click', (e) => {
         if (e.target === elAdminOverlay) {
           elAdminOverlay.classList.remove('open');
+          document.getElementById('sg-admin-desk')?.classList.remove('chat-active');
           heartbeatAdminPresence(false);
         }
       });
       elAdminClose?.addEventListener('click', () => {
         elAdminOverlay?.classList.remove('open');
+        document.getElementById('sg-admin-desk')?.classList.remove('chat-active');
         heartbeatAdminPresence(false);
+      });
+      document.getElementById('sg-admin-back-btn')?.addEventListener('click', () => {
+        document.getElementById('sg-admin-desk')?.classList.remove('chat-active');
       });
 
       // ── Hook into auth state ─────────────────────────────────────
@@ -6016,17 +6116,17 @@
 
       <!-- Admin Top Bar -->
       <div id="sg-admin-topbar">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2.5 min-w-0">
           <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style="background:linear-gradient(135deg,#2563EB,#1D4ED8);">
             <svg width="14" height="14" fill="none" stroke="#fff" stroke-width="2.3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4" stroke-width="2.5"/></svg>
           </div>
-          <div>
-            <div class="text-white font-extrabold text-sm" style="font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:-0.02em;">Saving Guide — Admin Live Desk</div>
-            <div class="text-slate-500 font-mono font-semibold" style="font-size:0.62rem;letter-spacing:0.04em;">SAVEMONEYMANUALLY · OPERATOR VIEW · REAL-TIME</div>
+          <div class="min-w-0">
+            <div class="text-white font-extrabold text-xs sm:text-sm truncate" style="font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:-0.02em;">Saving Guide Admin Desk</div>
+            <div class="text-slate-500 font-mono font-semibold hidden sm:block truncate" style="font-size:0.62rem;letter-spacing:0.04em;">SAVEMONEYMANUALLY · OPERATOR VIEW · REAL-TIME</div>
           </div>
         </div>
-        <div class="flex items-center gap-3">
-          <span class="flex items-center gap-1.5 font-mono font-bold text-emerald-400" style="font-size:0.65rem;">
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <span class="flex items-center gap-1 font-mono font-bold text-emerald-400 text-[10px] sm:text-[11px]">
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>LIVE
           </span>
           <button id="sg-admin-lock" class="sg-header-btn" title="Lock Admin Desk" aria-label="Lock admin desk">
@@ -6058,10 +6158,16 @@
         <!-- Right: Live Terminal -->
         <div id="sg-admin-chat-panel">
           <div id="sg-admin-toolbar">
-            <div id="sg-admin-sel-user" class="flex-1 text-slate-400 font-medium" style="font-size:0.75rem;">← Select a session</div>
-            <button id="sg-admin-takeover" type="button" class="hidden text-xs font-bold px-3 py-1.5 rounded-xl transition-all" style="background:#EFF6FF;color:#2563EB;border:1.5px solid #BFDBFE;" title="Take Over from Saving Guide">⚡ Take Over</button>
-            <button id="sg-admin-handback" type="button" class="hidden text-xs font-bold px-3 py-1.5 rounded-xl transition-all" style="background:#F1F5F9;color:#64748B;border:1.5px solid #E2E8F0;" title="Hand Back to Saving Guide">🤖 Hand to Bot</button>
-            <button id="sg-admin-resolve" type="button" class="hidden text-xs font-bold px-3 py-1.5 rounded-xl transition-all" style="background:#ECFDF5;color:#059669;border:1.5px solid #A7F3D0;" title="Mark Resolved">✓ Resolve</button>
+            <button id="sg-admin-back-btn" type="button" class="md:hidden flex items-center gap-1 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-xl cursor-pointer transition-colors" title="Back to Sessions list">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+              <span>Sessions</span>
+            </button>
+            <div id="sg-admin-sel-user" class="flex-1 text-slate-400 font-medium truncate" style="font-size:0.75rem;">← Select a session</div>
+            <div class="flex items-center gap-1.5 flex-wrap flex-shrink-0">
+              <button id="sg-admin-takeover" type="button" class="hidden text-xs font-bold px-2.5 py-1.5 rounded-xl transition-all" style="background:#EFF6FF;color:#2563EB;border:1.5px solid #BFDBFE;" title="Take Over from Saving Guide">⚡ Take Over</button>
+              <button id="sg-admin-handback" type="button" class="hidden text-xs font-bold px-2.5 py-1.5 rounded-xl transition-all" style="background:#F1F5F9;color:#64748B;border:1.5px solid #E2E8F0;" title="Hand Back to Saving Guide">🤖 Hand to Bot</button>
+              <button id="sg-admin-resolve" type="button" class="hidden text-xs font-bold px-2.5 py-1.5 rounded-xl transition-all" style="background:#ECFDF5;color:#059669;border:1.5px solid #A7F3D0;" title="Mark Resolved">✓ Resolve</button>
+            </div>
           </div>
           <div id="sg-admin-messages">
             <div class="flex flex-col items-center justify-center gap-3 h-full text-center" id="sg-admin-placeholder">
