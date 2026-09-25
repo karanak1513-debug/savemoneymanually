@@ -561,14 +561,13 @@
       cursor: grab;
       border: none;
       outline: none;
-      touch-action: none; /* Crucial for smooth touch-dragging on mobile screens */
-      user-select: none;
-      -webkit-user-select: none;
+      touch-action: none !important; /* Crucial for smooth touch-dragging on mobile screens */
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      -webkit-user-drag: none !important;
       transition: transform 0.22s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease;
     }
-    #sg-launcher:active {
-      cursor: grabbing;
-    }
+    #sg-launcher:active,
     #sg-launcher.is-dragging {
       cursor: grabbing !important;
       transition: none !important;
@@ -689,15 +688,22 @@
       }
     }
 
-    /* ── Chat Header ────────────────────────────────────────────── */
+    /* ── Chat Header (Draggable) ────────────────────────────────── */
     #sg-header {
       background: linear-gradient(145deg, #070B12 0%, #0F172A 50%, #1E293B 100%);
-      padding: 0.9rem 1rem 0.85rem;
+      padding: 0.85rem 1rem 0.8rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
       flex-shrink: 0;
       border-bottom: 1px solid rgba(255,255,255,0.05);
+      touch-action: none !important;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      cursor: grab;
+    }
+    #sg-header.is-dragging {
+      cursor: grabbing !important;
     }
     #sg-avatar {
       width: 2.1rem;
@@ -755,21 +761,24 @@
     }
     .sg-header-btn:hover { color: #F8FAFC; background: rgba(255,255,255,0.08); }
 
-    /* ── Messages Stream ────────────────────────────────────────── */
+    /* ── Messages Stream (Glitch-Free Scrolling Engine) ─────────── */
     #sg-messages {
       flex: 1;
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding: 1rem 0.875rem;
+      overflow-y: auto !important;
+      overflow-x: hidden !important;
+      padding: 0.75rem 0.875rem;
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
       background: #FAFBFC;
-      overscroll-behavior: contain;
+      overscroll-behavior-y: contain !important;
       -webkit-overflow-scrolling: touch;
       position: relative;
+      overflow-anchor: none !important; /* CRITICAL FIX: prevents Chromium from jerking/jumping scroll on flex column */
+      scroll-behavior: auto !important; /* Prevents scroll conflicts during active drag or mousewheel */
     }
-    #sg-messages::-webkit-scrollbar { width: 4px; }
+    #sg-messages::-webkit-scrollbar { width: 5px; }
+    #sg-messages::-webkit-scrollbar-track { background: transparent; }
     #sg-messages::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 99px; }
     #sg-messages::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
 
@@ -4550,20 +4559,22 @@
         return wrap;
       }
 
+      let isUserScrolledUp = false;
+
       function isUserNearBottom() {
         if (!elMessages) return true;
         const dist = elMessages.scrollHeight - elMessages.scrollTop - elMessages.clientHeight;
-        return dist <= 110;
+        return dist <= 18;
       }
 
       function scrollToBottom(el, force = false, smooth = false) {
         if (!el) return;
-        if (force || isUserNearBottom()) {
-          if (smooth) {
-            el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
-          } else {
-            el.scrollTop = el.scrollHeight;
-          }
+        // Never snatch or glitch scroll when user is intentionally scrolling up to read messages
+        if (!force && isUserScrolledUp) return;
+        if (smooth) {
+          el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        } else {
+          el.scrollTop = el.scrollHeight;
         }
       }
 
@@ -4973,8 +4984,20 @@
         if (sgSendLock) return;
         const text = (overrideText || elInput?.value || '').trim();
         if (!text || !currentUser) return;
+
+        // Instant clear command support: typing 'clear', 'clear chat', '/clear'
+        const lower = text.toLowerCase();
+        if (lower === 'clear' || lower === 'clear chat' || lower === '/clear' || lower === 'saf karo') {
+          if (elInput && !overrideText) elInput.value = '';
+          if (typeof executeClearChat === 'function') {
+            executeClearChat();
+          }
+          return;
+        }
+
         sgSendLock = true;
         if (elInput && !overrideText) elInput.value = '';
+        isUserScrolledUp = false; // Reset to allow auto-scroll for user's own sent message
 
         // Render optimistic bubble immediately (SENT = ✓ gray)
         const optimisticWrap = renderMsg(null, 'USER', text, 'SENT', new Date(), false);
@@ -5041,11 +5064,6 @@
       // ================================================================
       const LAUNCHER_STORAGE_KEY = 'sg_launcher_pos_pct';
       const LAUNCHER_MIN_TOP     = 65; // px below top navigation/status bar
-      let isLauncherDragging     = false;
-      let hasLauncherMoved       = false;
-      let launcherStartY         = 0;
-      let launcherStartTop       = 0;
-      const LAUNCHER_DRAG_DELTA  = 6;  // px threshold before activating drag
 
       function getLauncherMinBottom() {
         // Keeps it safely above the mobile dock navigation (~60px dock + padding)
@@ -5095,68 +5113,94 @@
         if (saved !== null) applySavedLauncherPosition();
       });
 
-      // Pointer/Touch Drag handlers
-      function onLauncherPointerDown(e) {
-        if (e.type === 'mousedown' && e.button !== 0) return; // left click only
-        const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
-        launcherStartY   = clientY;
+      // ── Modern Robust Pointer-Event Drag Engine for Floating Launcher ──
+      let launcherDragMoved = false;
+      let launcherStartY = 0;
+      let launcherStartTop = 0;
+      let launcherDragDistance = 0;
+
+      elLauncher?.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return;
+        launcherDragMoved = false;
+        launcherDragDistance = 0;
+        launcherStartY = e.clientY;
         launcherStartTop = elLauncher.getBoundingClientRect().top;
-        hasLauncherMoved = false;
-        isLauncherDragging = false;
+        try { elLauncher.setPointerCapture(e.pointerId); } catch(err) {}
+        elLauncher.style.transition = 'none';
+        e.preventDefault();
+      });
 
-        if (e.type.startsWith('touch')) {
-          document.addEventListener('touchmove', onLauncherPointerMove, { passive: false });
-          document.addEventListener('touchend', onLauncherPointerUp);
-          document.addEventListener('touchcancel', onLauncherPointerUp);
-        } else {
-          document.addEventListener('mousemove', onLauncherPointerMove);
-          document.addEventListener('mouseup', onLauncherPointerUp);
+      elLauncher?.addEventListener('pointermove', (e) => {
+        if (!elLauncher.hasPointerCapture || !elLauncher.hasPointerCapture(e.pointerId)) return;
+        const deltaY = e.clientY - launcherStartY;
+        launcherDragDistance += Math.abs(deltaY);
+        if (launcherDragDistance > 5) {
+          launcherDragMoved = true;
+          elLauncher.classList.add('is-dragging');
         }
-      }
+        clampAndSetLauncherTop(launcherStartTop + deltaY, false);
+      });
 
-      function onLauncherPointerMove(e) {
-        const clientY = e.type.startsWith('touch') ? e.touches[0].clientY : e.clientY;
-        const deltaY  = clientY - launcherStartY;
-
-        if (!hasLauncherMoved && Math.abs(deltaY) > LAUNCHER_DRAG_DELTA) {
-          hasLauncherMoved   = true;
-          isLauncherDragging = true;
-          elLauncher?.classList.add('is-dragging');
+      const finishLauncherDrag = (e) => {
+        if (elLauncher.hasPointerCapture && elLauncher.hasPointerCapture(e.pointerId)) {
+          try { elLauncher.releasePointerCapture(e.pointerId); } catch(err) {}
         }
+        elLauncher.style.transition = '';
+        elLauncher.classList.remove('is-dragging');
+        const rect = elLauncher.getBoundingClientRect();
+        clampAndSetLauncherTop(rect.top, true);
+        setTimeout(() => { launcherDragMoved = false; }, 80);
+      };
 
-        if (isLauncherDragging) {
-          if (e.cancelable) e.preventDefault();
-          clampAndSetLauncherTop(launcherStartTop + deltaY, false);
+      elLauncher?.addEventListener('pointerup', finishLauncherDrag);
+      elLauncher?.addEventListener('pointercancel', finishLauncherDrag);
+      elLauncher?.addEventListener('dragstart', (e) => e.preventDefault());
+
+      // ── Modern Pointer-Event Drag Engine for Chatbot Window (via Header) ──
+      const elHeader = document.getElementById('sg-header');
+      let winDragMoved = false;
+      let winStartY = 0;
+      let winStartTop = 0;
+      let winDragDistance = 0;
+
+      elHeader?.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button') || e.target.closest('#sg-pos-menu') || e.button !== 0) return;
+        winDragMoved = false;
+        winDragDistance = 0;
+        winStartY = e.clientY;
+        const rect = elWindow.getBoundingClientRect();
+        winStartTop = rect.top;
+        try { elHeader.setPointerCapture(e.pointerId); } catch(err) {}
+        elWindow.style.transition = 'none';
+        elHeader.classList.add('is-dragging');
+        e.preventDefault();
+      });
+
+      elHeader?.addEventListener('pointermove', (e) => {
+        if (!elHeader.hasPointerCapture || !elHeader.hasPointerCapture(e.pointerId)) return;
+        const deltaY = e.clientY - winStartY;
+        winDragDistance += Math.abs(deltaY);
+        if (winDragDistance > 4) {
+          winDragMoved = true;
         }
-      }
+        const winH = elWindow.offsetHeight || 500;
+        const minTop = 55;
+        const maxTop = Math.max(minTop, window.innerHeight - winH - 15);
+        const newTop = Math.max(minTop, Math.min(winStartTop + deltaY, maxTop));
+        elWindow.style.bottom = 'auto';
+        elWindow.style.top = `${newTop}px`;
+      });
 
-      function onLauncherPointerUp(e) {
-        if (e.type.startsWith('touch')) {
-          document.removeEventListener('touchmove', onLauncherPointerMove);
-          document.removeEventListener('touchend', onLauncherPointerUp);
-          document.removeEventListener('touchcancel', onLauncherPointerUp);
-        } else {
-          document.removeEventListener('mousemove', onLauncherPointerMove);
-          document.removeEventListener('mouseup', onLauncherPointerUp);
+      const finishWinDrag = (e) => {
+        if (elHeader.hasPointerCapture && elHeader.hasPointerCapture(e.pointerId)) {
+          try { elHeader.releasePointerCapture(e.pointerId); } catch(err) {}
         }
+        elWindow.style.transition = '';
+        elHeader.classList.remove('is-dragging');
+      };
 
-        if (isLauncherDragging) {
-          elLauncher?.classList.remove('is-dragging');
-          const rect = elLauncher.getBoundingClientRect();
-          clampAndSetLauncherTop(rect.top, true);
-
-          setTimeout(() => {
-            isLauncherDragging = false;
-            hasLauncherMoved   = false;
-          }, 80);
-        } else {
-          isLauncherDragging = false;
-          hasLauncherMoved   = false;
-        }
-      }
-
-      elLauncher?.addEventListener('touchstart', onLauncherPointerDown, { passive: true });
-      elLauncher?.addEventListener('mousedown', onLauncherPointerDown);
+      elHeader?.addEventListener('pointerup', finishWinDrag);
+      elHeader?.addEventListener('pointercancel', finishWinDrag);
 
       // Global helper to reposition launcher from UI or console
       window.sgMoveLauncher = function(pos) {
@@ -5194,7 +5238,11 @@
 
       // ── Launcher click ───────────────────────────────────────────
       elLauncher?.addEventListener('click', (e) => {
-        if (hasLauncherMoved || isLauncherDragging) return; // Prevent triggering chat when dragged
+        if (launcherDragMoved || launcherDragDistance > 6) {
+          e.preventDefault();
+          e.stopPropagation();
+          return; // Prevent triggering chat when dragged
+        }
         if (sgWindowOpen) { closeWindow(); return; }
         if (!currentUser) {
           showToast('Please sign in first to use Saving Guide.', 'info');
@@ -5208,37 +5256,17 @@
       document.getElementById('sg-close-btn')?.addEventListener('click', closeWindow);
       document.getElementById('sg-minimize-btn')?.addEventListener('click', closeWindow);
 
-      // ── Clear Chat Handlers ──────────────────────────────────────
-      const elClearBtn     = document.getElementById('sg-clear-btn');
-      const elClearModal   = document.getElementById('sg-clear-modal');
-      const elCancelClear  = document.getElementById('sg-cancel-clear');
-      const elConfirmClear = document.getElementById('sg-confirm-clear');
-
-      elClearBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        elClearModal?.classList.remove('hidden');
-      });
-
-      elCancelClear?.addEventListener('click', () => {
-        elClearModal?.classList.add('hidden');
-      });
-
-      elClearModal?.addEventListener('click', (e) => {
-        if (e.target === elClearModal) elClearModal.classList.add('hidden');
-      });
-
-      elConfirmClear?.addEventListener('click', async () => {
-        elClearModal?.classList.add('hidden');
-        if (!currentUser) return;
-
-        // Instant UI clear
-        elMessages.querySelectorAll('.sg-msg-wrap, .sg-pills, .sg-date-sep').forEach(n => n.remove());
-        renderWelcome();
-        scrollToBottom(elMessages, true);
-        showToast('Chat history cleared.', 'success');
-
-        // Reset conversation memory
+      // ── Universal Rock-Solid Clear Chat Function ─────────────────
+      async function executeClearChat() {
+        if (elMessages) {
+          elMessages.querySelectorAll('.sg-msg-wrap, .sg-pills, .sg-date-sep').forEach(n => n.remove());
+          renderWelcome();
+          isUserScrolledUp = false;
+          scrollToBottom(elMessages, true);
+        }
+        // Reset multi-turn conversation memory
         sgConvContext = { lastIntent: null, lastAmount: null, lastDuration: null, lastGoal: null, turnCount: 0 };
+        showToast('Chat history cleared.', 'success');
 
         // Wipe Firestore messages for current thread in background
         if (db && sgThreadId) {
@@ -5260,22 +5288,59 @@
             console.warn('Notice while clearing Firestore chat messages:', err);
           }
         }
+      }
+      window.executeClearChat = executeClearChat;
+
+      // ── Clear Chat Handlers ──────────────────────────────────────
+      const elClearBtn     = document.getElementById('sg-clear-btn');
+      const elClearModal   = document.getElementById('sg-clear-modal');
+      const elCancelClear  = document.getElementById('sg-cancel-clear');
+      const elConfirmClear = document.getElementById('sg-confirm-clear');
+      const elInlineClear  = document.getElementById('sg-inline-clear-btn');
+
+      elClearBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elClearModal?.classList.remove('hidden');
       });
 
-      // ── Quick Scroll-to-Bottom Button Handler ─────────────────────
+      elInlineClear?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        elClearModal?.classList.remove('hidden');
+      });
+
+      elCancelClear?.addEventListener('click', () => {
+        elClearModal?.classList.add('hidden');
+      });
+
+      elClearModal?.addEventListener('click', (e) => {
+        if (e.target === elClearModal) elClearModal.classList.add('hidden');
+      });
+
+      elConfirmClear?.addEventListener('click', async () => {
+        elClearModal?.classList.add('hidden');
+        await executeClearChat();
+      });
+
+      // ── Glitch-Free Scroll Engine & History Protection ───────────
       const elScrollBottomBtn = document.getElementById('sg-scroll-bottom-btn');
       elMessages?.addEventListener('scroll', () => {
-        if (!elMessages || !elScrollBottomBtn) return;
+        if (!elMessages) return;
         const distFromBottom = elMessages.scrollHeight - elMessages.scrollTop - elMessages.clientHeight;
-        if (distFromBottom > 130) {
-          elScrollBottomBtn.classList.remove('hidden');
-        } else {
-          elScrollBottomBtn.classList.add('hidden');
+        // If user scrolled up even 20px, set flag to protect scroll from jumping down
+        isUserScrolledUp = distFromBottom > 25;
+
+        if (elScrollBottomBtn) {
+          if (distFromBottom > 110) {
+            elScrollBottomBtn.classList.remove('hidden');
+          } else {
+            elScrollBottomBtn.classList.add('hidden');
+          }
         }
       }, { passive: true });
 
       elScrollBottomBtn?.addEventListener('click', () => {
-        elMessages?.scrollTo({ top: elMessages.scrollHeight, behavior: 'smooth' });
+        isUserScrolledUp = false;
+        scrollToBottom(elMessages, true, true);
         elScrollBottomBtn.classList.add('hidden');
       });
 
@@ -5751,9 +5816,9 @@
 
   <!-- Chat Window -->
   <div id="sg-window" role="dialog" aria-label="Saving Guide Support Chat" aria-modal="false">
-    <!-- Header -->
-    <div id="sg-header">
-      <div class="flex items-center gap-2.5">
+    <!-- Header (Draggable via Header Bar) -->
+    <div id="sg-header" title="Drag to move chat window">
+      <div class="flex items-center gap-2 min-w-0">
         <div id="sg-avatar">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -5768,10 +5833,18 @@
           </div>
         </div>
       </div>
-      <div id="sg-header-actions" class="flex items-center gap-1">
-        <!-- Clear Chat Button -->
-        <button class="sg-header-btn" id="sg-clear-btn" type="button" title="Clear Chat History" aria-label="Clear chat history">
-          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+
+      <!-- Drag Handle Hint in Center -->
+      <div id="sg-header-drag-handle" class="hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/10 text-[9px] font-mono text-slate-300 select-none cursor-grab active:cursor-grabbing hover:bg-white/15 transition-colors" title="Drag to move window up or down">
+        <span>⋮⋮</span>
+        <span>Drag ↕</span>
+      </div>
+
+      <div id="sg-header-actions" class="flex items-center gap-1.5 flex-shrink-0">
+        <!-- Clear Chat Button (Prominent & High-Contrast) -->
+        <button class="sg-header-btn flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/35 text-rose-300 hover:text-white border border-rose-500/40 text-[11px] font-bold cursor-pointer transition-all" id="sg-clear-btn" type="button" title="Clear Chat History" aria-label="Clear chat history">
+          <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          <span>Clear</span>
         </button>
         <!-- Position Customizer Menu -->
         <div class="relative inline-block text-left" id="sg-pos-wrap">
@@ -5821,6 +5894,13 @@
 
     <!-- Messages Stream -->
     <div id="sg-messages" role="log" aria-live="polite" aria-label="Chat messages">
+      <!-- Top Persistent Action Bar (With Clear Link) -->
+      <div id="sg-top-bar" class="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-slate-100/90 border border-slate-200/80 text-[11px] text-slate-600 mb-1 flex-shrink-0">
+        <span class="flex items-center gap-1 font-medium">💬 <span>Support Chat</span></span>
+        <button id="sg-inline-clear-btn" type="button" class="text-rose-600 hover:text-rose-700 font-bold hover:underline cursor-pointer flex items-center gap-1">
+          <span>🗑️ Clear History</span>
+        </button>
+      </div>
       <!-- Typing Indicator (hidden by default) -->
       <div id="sg-typing-indicator">
         <span class="sg-typing-label">Saving Guide is typing…</span>
