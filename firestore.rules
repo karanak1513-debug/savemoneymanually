@@ -1,0 +1,20 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Global authenticated fallback (zero-block for dev/prod sync) ──
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // ── Per-user isolated data tree ───────────────────────────────────
+    match /users/{userId}/{allSubcollections=**} {
+      allow read, write: if request.auth != null;
+    }
+
+    // ── Saving Guide: support threads & messages ──────────────────────
+    match /support_threads/{threadId}/{allSubcollections=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

@@ -1,0 +1,14 @@
+# Firebase cache and logs
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE and System
+.vscode/
+.DS_Store
+Thumbs.db

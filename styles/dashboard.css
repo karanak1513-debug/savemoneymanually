@@ -1,0 +1,248 @@
+/* ============================================================
+   VAULT.FI — Dashboard Page Styles
+   ============================================================ */
+
+/* ── Stats Row ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+/* ── Welcome Banner ── */
+.welcome-banner {
+  background: linear-gradient(135deg, rgba(124,58,237,0.2) 0%, rgba(6,182,212,0.1) 100%);
+  border: 1px solid rgba(124,58,237,0.3);
+  border-radius: var(--radius-xl);
+  padding: 2rem 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+.welcome-banner::before {
+  content: '';
+  position: absolute;
+  top: -50%; right: -10%;
+  width: 300px; height: 300px;
+  background: var(--purple);
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.15;
+}
+.welcome-banner-text h2 {
+  font-size: 1.4rem;
+  margin-bottom: 0.35rem;
+}
+.welcome-banner-text p {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+.welcome-banner-emoji {
+  font-size: 3.5rem;
+  position: relative;
+  z-index: 1;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+/* ── Chart Card ── */
+.chart-card {
+  padding: 1.75rem;
+}
+.chart-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.chart-card-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.chart-tabs {
+  display: flex;
+  background: var(--bg-input);
+  border-radius: var(--radius-full);
+  padding: 3px;
+  gap: 2px;
+}
+.chart-tab {
+  padding: 0.3rem 0.8rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+.chart-tab.active {
+  background: var(--purple);
+  color: #fff;
+}
+
+/* ── Mini Sparkline Chart ── */
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 200px;
+}
+.chart-container canvas {
+  border-radius: var(--radius-md);
+}
+
+/* ── Dashboard Grid ── */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 1.5rem;
+}
+.dashboard-grid-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.dashboard-grid-right {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* ── Quick Actions ── */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+.quick-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.25rem 0.75rem;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  transition: all 0.25s var(--ease-out);
+  cursor: pointer;
+}
+.quick-action-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--purple);
+  color: var(--text-accent);
+  transform: translateY(-2px);
+}
+.quick-action-icon {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+}
+
+/* ── Recent Transactions List ── */
+.transactions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+.transaction-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-md);
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.transaction-item:hover { background: var(--bg-card); }
+.transaction-icon {
+  width: 42px; height: 42px;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+.transaction-info { flex: 1; min-width: 0; }
+.transaction-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.transaction-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.transaction-amount {
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-family: var(--font-head);
+  flex-shrink: 0;
+}
+.transaction-amount.income { color: #34d399; }
+.transaction-amount.expense { color: #f87171; }
+
+/* ── Savings Goals Widget ── */
+.goal-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  margin-bottom: 0.75rem;
+  transition: all 0.2s;
+}
+.goal-item:hover {
+  border-color: var(--border-strong);
+  transform: translateX(2px);
+}
+.goal-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.goal-item-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.goal-item-amount {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.goal-item-pct {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-accent);
+}
+
+/* ── Responsive ── */
+@media (max-width: 1200px) {
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .dashboard-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .quick-actions { grid-template-columns: repeat(2, 1fr); }
+  .welcome-banner { flex-direction: column; text-align: center; gap: 1rem; }
+}
+@media (max-width: 480px) {
+  .stats-row { grid-template-columns: 1fr; }
+  .quick-actions { grid-template-columns: repeat(2, 1fr); }
+}
