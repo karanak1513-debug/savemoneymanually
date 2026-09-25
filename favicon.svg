@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563EB"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="shieldFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.05"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded Squircle Badge Background -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#bgGrad)"/>
+
+  <!-- Shield Outline & Interior Fill -->
+  <g filter="url(#glow)">
+    <path d="M32 51 C45 44 49 37 49 24 V16 L32 10 L15 16 V24 C15 37 19 44 32 51 Z" 
+          fill="url(#shieldFill)" 
+          stroke="#FFFFFF" 
+          stroke-width="3" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"/>
+    
+    <!-- Central Vault Circle & Security Notch -->
+    <circle cx="32" cy="27" r="5.5" stroke="#FFFFFF" stroke-width="2.6" fill="none"/>
+    <circle cx="32" cy="27" r="1.8" fill="#FFFFFF"/>
+    <path d="M32 32.5 V37.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/>
+  </g>
+</svg>
