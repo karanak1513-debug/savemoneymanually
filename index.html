@@ -50,6 +50,21 @@
   <!-- Three.js CDN (r128) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
+  <!-- Instant Session Continuity & Tab Memory across page refresh -->
+  <script>
+    try {
+      var isDemo = sessionStorage.getItem('smm_demo_mode') === 'true' || localStorage.getItem('smm_demo_mode') === 'true';
+      var cachedUser = localStorage.getItem('smm_user_cached');
+      if (isDemo || cachedUser) {
+        document.documentElement.classList.add('smm-has-session');
+      }
+    } catch (e) {}
+  </script>
+  <style>
+    html.smm-has-session #authContainer { display: none !important; }
+    html.smm-has-session #dashboardContainer { display: flex !important; }
+  </style>
+
   <style>
     /* ============================================================ */
     /* 1. STRICT DESIGN SYSTEM & PALETTE                            */
@@ -2681,13 +2696,32 @@
     }
 
     // ============================================================
-    // LOWER NAVIGATION ROUTER: ZERO-RELOAD DOM SWITCHING
+    // LOWER NAVIGATION ROUTER: ZERO-RELOAD DOM SWITCHING & PERSISTENCE
     // ============================================================
     const TABS = ['home', 'goals', 'calendar', 'ledger'];
+
+    function getPersistedTab() {
+      try {
+        const hash = (window.location.hash || '').replace('#', '').trim().toLowerCase();
+        if (TABS.includes(hash)) return hash;
+        const stored = sessionStorage.getItem('smm_active_tab') || localStorage.getItem('smm_active_tab');
+        if (TABS.includes(stored)) return stored;
+      } catch (e) {}
+      return 'home';
+    }
 
     function switchTab(targetTab) {
       if (!TABS.includes(targetTab)) targetTab = 'home';
       currentTab = targetTab;
+
+      // Persist active tab across refresh & keep URL hash in sync
+      try {
+        sessionStorage.setItem('smm_active_tab', targetTab);
+        localStorage.setItem('smm_active_tab', targetTab);
+        if (window.location.hash !== '#' + targetTab) {
+          history.replaceState(null, '', '#' + targetTab);
+        }
+      } catch (e) {}
 
       // 1. Instantaneous view container visibility toggle
       TABS.forEach(t => {
@@ -2748,6 +2782,13 @@
         const target = btn.dataset.target;
         if (target) switchTab(target);
       });
+    });
+
+    window.addEventListener('hashchange', () => {
+      const hash = (window.location.hash || '').replace('#', '').trim().toLowerCase();
+      if (TABS.includes(hash) && hash !== currentTab) {
+        switchTab(hash);
+      }
     });
 
     // ============================================================
@@ -3991,7 +4032,7 @@
       }
 
       initDataSync(userData);
-      switchTab('home');
+      switchTab(getPersistedTab());
       if (typeof window.__sgInit === 'function') {
         window.__sgInit(userData);
       }
@@ -3999,6 +4040,18 @@
     }
 
     function exitToAuth() {
+      try {
+        sessionStorage.removeItem('smm_demo_mode');
+        localStorage.removeItem('smm_demo_mode');
+        sessionStorage.removeItem('smm_active_tab');
+        localStorage.removeItem('smm_active_tab');
+        localStorage.removeItem('smm_user_cached');
+        document.documentElement.classList.remove('smm-has-session');
+        if (window.location.hash) {
+          history.replaceState(null, '', window.location.pathname);
+        }
+      } catch (e) {}
+
       const authContainer = document.getElementById("authContainer") || document.getElementById("auth-view") || authView;
       const dashboardContainer = document.getElementById("dashboardContainer") || document.getElementById("dashboard-view") || dashboardView;
 
@@ -4177,6 +4230,11 @@
 
     // Instant Demo Mode Handler
     document.getElementById('btn-demo-mode')?.addEventListener('click', () => {
+      try {
+        sessionStorage.setItem('smm_demo_mode', 'true');
+        localStorage.setItem('smm_demo_mode', 'true');
+        document.documentElement.classList.add('smm-has-session');
+      } catch (e) {}
       enterDashboard({
         uid: 'demo-user',
         displayName: 'Kai Sterling',
@@ -4212,6 +4270,17 @@
       if (user) {
         console.log("Active Session Detected:", user.email);
         currentUser = user;
+        try {
+          sessionStorage.removeItem('smm_demo_mode');
+          localStorage.removeItem('smm_demo_mode');
+          localStorage.setItem('smm_user_cached', JSON.stringify({
+            uid: user.uid,
+            displayName: user.displayName || '',
+            email: user.email || '',
+            photoURL: user.photoURL || ''
+          }));
+          document.documentElement.classList.add('smm-has-session');
+        } catch (e) {}
 
         // 1. Force hide login screen
         if (authContainer) {
@@ -4263,7 +4332,7 @@
           window.__sgInit(user);
         }
 
-        switchTab('home');
+        switchTab(getPersistedTab());
 
         // Background non-blocking firestore profile update
         if (db) {
@@ -4278,8 +4347,26 @@
 
         showToast(`Welcome back, ${displayName}. Cockpit online.`, 'success');
       } else {
-        // Show login only if signed out
+        // If Demo mode was active, preserve it across refresh!
+        const isDemoActive = (sessionStorage.getItem('smm_demo_mode') === 'true' || localStorage.getItem('smm_demo_mode') === 'true');
+        if (isDemoActive) {
+          console.log("Restoring Demo Session across refresh...");
+          enterDashboard({
+            uid: 'demo-user',
+            displayName: 'Kai Sterling',
+            email: 'demo@savemoneymanually.com',
+            isDemo: true
+          });
+          return;
+        }
+
+        // Show login only if signed out and not demo
         currentUser = null;
+        try {
+          localStorage.removeItem('smm_user_cached');
+          document.documentElement.classList.remove('smm-has-session');
+        } catch (e) {}
+
         if (authContainer) {
           authContainer.classList.remove("hidden");
           authContainer.style.display = "flex";
